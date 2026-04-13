@@ -5,9 +5,6 @@ import time
 import random
 import re
 
-# ==============================
-# DOMAIN SEARCH QUERIES
-# ==============================
 DOMAINS = [
     "Artificial Intelligence",
     "Data Science",
@@ -22,9 +19,6 @@ DOMAINS = [
 ]
 
 
-# ==============================
-# SCRAPE COURSE DETAIL PAGE
-# ==============================
 def scrape_course_details(course_url):
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -37,47 +31,47 @@ def scrape_course_details(course_url):
             return {}
 
         soup = BeautifulSoup(response.text, "html.parser")
-        text = soup.get_text(" ", strip=True)
+        text = soup.get_text("\n", strip=True)
 
-        # --------------------------
+        # ==========================
         # DESCRIPTION
-        # --------------------------
+        # ==========================
         description = text[:500]
 
-        # --------------------------
+        # ==========================
         # LEVEL
-        # --------------------------
+        # ==========================
         level = ""
         for lv in ["Beginner", "Intermediate", "Advanced", "Mixed"]:
             if lv.lower() in text.lower():
                 level = lv
                 break
 
-        # --------------------------
-        # BETTER MENTOR / PROVIDER
-        # --------------------------
+        # ==========================
+        # PRECISE MENTOR EXTRACTION
+        # ==========================
         mentor = "Not Available"
 
-        mentor_patterns = [
-            r"Taught by\s+([A-Za-z0-9&.\-\s]+)",
-            r"Instructor[s]?:\s*([A-Za-z0-9&.\-\s]+)",
-            r"Created by\s+([A-Za-z0-9&.\-\s]+)",
-            r"Offered by\s+([A-Za-z0-9&.\-\s]+)"
-        ]
+        # Best exact pattern for Coursera hero section
+        exact_match = re.search(
+            r"Instructor:\s*\n?([A-Z][A-Za-z.\-\s]+)",
+            text
+        )
 
-        for pattern in mentor_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                mentor = match.group(1).strip()
+        if exact_match:
+            mentor = exact_match.group(1).strip()
+        else:
+            # fallback provider section
+            provider_match = re.search(
+                r"Offered by\s*\n?([A-Z][A-Za-z0-9&.\-\s]+)",
+                text
+            )
+            if provider_match:
+                mentor = provider_match.group(1).strip()
 
-                # clean long captures
-                mentor = mentor.split("Enroll")[0]
-                mentor = mentor.split("Learn")[0]
-                mentor = mentor.split("Skills")[0]
-
-                # keep short clean provider name
-                mentor = " ".join(mentor.split()[:4])
-                break
+        # cleanup
+        mentor = mentor.split("Top Instructor")[0].strip()
+        mentor = " ".join(mentor.split()[:4])
 
         return {
             "description": description,
@@ -94,9 +88,6 @@ def scrape_course_details(course_url):
         return {}
 
 
-# ==============================
-# SCRAPE DOMAIN SEARCH PAGE
-# ==============================
 def scrape_domain_courses(domain, max_courses=20):
     print(f"Scraping domain: {domain}")
 
@@ -161,9 +152,6 @@ def scrape_domain_courses(domain, max_courses=20):
     return courses
 
 
-# ==============================
-# MAIN SCRAPER
-# ==============================
 def run_scraper():
     all_courses = []
 
