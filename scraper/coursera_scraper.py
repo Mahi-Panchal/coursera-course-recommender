@@ -5,7 +5,6 @@ import time
 import random
 import re
 
-
 # ==============================
 # DOMAIN SEARCH QUERIES
 # ==============================
@@ -40,32 +39,45 @@ def scrape_course_details(course_url):
         soup = BeautifulSoup(response.text, "html.parser")
         text = soup.get_text(" ", strip=True)
 
-        # Description
+        # --------------------------
+        # DESCRIPTION
+        # --------------------------
         description = text[:500]
 
-        # Level
+        # --------------------------
+        # LEVEL
+        # --------------------------
         level = ""
         for lv in ["Beginner", "Intermediate", "Advanced", "Mixed"]:
             if lv.lower() in text.lower():
                 level = lv
                 break
 
-        # Mentor extraction using regex
-        mentor = ""
+        # --------------------------
+        # BETTER MENTOR / PROVIDER
+        # --------------------------
+        mentor = "Not Available"
+
         mentor_patterns = [
-            r"Instructor[s]?\s*([A-Z][a-zA-Z\s]+)",
-            r"Taught by\s*([A-Z][a-zA-Z\s]+)",
-            r"Created by\s*([A-Z][a-zA-Z\s]+)"
+            r"Taught by\s+([A-Za-z0-9&.\-\s]+)",
+            r"Instructor[s]?:\s*([A-Za-z0-9&.\-\s]+)",
+            r"Created by\s+([A-Za-z0-9&.\-\s]+)",
+            r"Offered by\s+([A-Za-z0-9&.\-\s]+)"
         ]
 
         for pattern in mentor_patterns:
-            match = re.search(pattern, text)
+            match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 mentor = match.group(1).strip()
-                break
 
-        if not mentor:
-            mentor = "Not Available"
+                # clean long captures
+                mentor = mentor.split("Enroll")[0]
+                mentor = mentor.split("Learn")[0]
+                mentor = mentor.split("Skills")[0]
+
+                # keep short clean provider name
+                mentor = " ".join(mentor.split()[:4])
+                break
 
         return {
             "description": description,
@@ -121,7 +133,6 @@ def scrape_domain_courses(domain, max_courses=20):
             seen_links.add(full_url)
 
             title = link.get_text(strip=True)
-
             if not title:
                 title = "Unknown Course"
 
