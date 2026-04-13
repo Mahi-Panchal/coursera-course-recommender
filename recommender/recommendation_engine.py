@@ -50,18 +50,39 @@ tfidf_matrix = vectorizer.fit_transform(df["combined_text"])
 # =========================
 # RECOMMENDATION FUNCTION
 # =========================
-def recommend_courses(domain, subdomain="", mentor="", top_n=5):
-    # Hard filter by domain
+def recommend_courses(
+    domain,
+    subdomain="",
+    mentor="",
+    max_duration=0,
+    price_filter="Any",
+    top_n=5
+):
     filtered_df = df[df["domain"].str.lower() == domain.lower()].copy()
 
+    # Optional subdomain filter
     if subdomain.strip():
         filtered_df = filtered_df[
             filtered_df["combined_text"].str.lower().str.contains(subdomain.lower())
         ]
 
+    # Optional mentor filter
     if mentor.strip():
         filtered_df = filtered_df[
             filtered_df["combined_text"].str.lower().str.contains(mentor.lower())
+        ]
+
+    # Optional price filter
+    if price_filter != "Any":
+        filtered_df = filtered_df[
+            filtered_df["price"].str.lower() == price_filter.lower()
+        ]
+
+    # Optional duration filter
+    if max_duration > 0:
+        filtered_df = filtered_df[
+            pd.to_numeric(filtered_df["duration"], errors="coerce").fillna(0)
+            <= max_duration
         ]
 
     if filtered_df.empty:
@@ -84,5 +105,14 @@ def recommend_courses(domain, subdomain="", mentor="", top_n=5):
     ).head(top_n)
 
     return recommendations[
-        ["course_name", "domain", "mentor", "level", "course_url", "score"]
+        [
+            "course_name",
+            "domain",
+            "mentor",
+            "level",
+            "duration",
+            "price",
+            "course_url",
+            "score"
+        ]
     ]
