@@ -57,11 +57,13 @@ top_n = st.slider("⭐ Number of Recommendations", 1, 10, 5)
 # =========================
 if st.button("🚀 Recommend Courses"):
     results = recommend_courses(
-        domain=domain,
-        subdomain=subdomain,
-        mentor=mentor,
-        top_n=top_n
-    )
+    domain=domain,
+    subdomain=subdomain,
+    mentor=mentor,
+    max_duration=duration,
+    price_filter=price,
+    top_n=top_n
+)
 
     if results.empty:
         st.warning("No matching courses found.")
