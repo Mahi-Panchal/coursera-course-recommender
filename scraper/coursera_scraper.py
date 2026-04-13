@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import time
 import random
+import re
 
 
 # ==============================
@@ -23,9 +24,68 @@ DOMAINS = [
 
 
 # ==============================
-# FUNCTION TO SCRAPE SEARCH PAGE
+# SCRAPE COURSE DETAIL PAGE
 # ==============================
-def scrape_domain_courses(domain, max_courses=5):
+def scrape_course_details(course_url):
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    try:
+        response = requests.get(course_url, headers=headers, timeout=10)
+
+        if response.status_code != 200:
+            return {}
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        text = soup.get_text(" ", strip=True)
+
+        # Description
+        description = text[:500]
+
+        # Level
+        level = ""
+        for lv in ["Beginner", "Intermediate", "Advanced", "Mixed"]:
+            if lv.lower() in text.lower():
+                level = lv
+                break
+
+        # Mentor extraction using regex
+        mentor = ""
+        mentor_patterns = [
+            r"Instructor[s]?\s*([A-Z][a-zA-Z\s]+)",
+            r"Taught by\s*([A-Z][a-zA-Z\s]+)",
+            r"Created by\s*([A-Z][a-zA-Z\s]+)"
+        ]
+
+        for pattern in mentor_patterns:
+            match = re.search(pattern, text)
+            if match:
+                mentor = match.group(1).strip()
+                break
+
+        if not mentor:
+            mentor = "Not Available"
+
+        return {
+            "description": description,
+            "skills": "",
+            "level": level,
+            "mentor": mentor,
+            "rating": "",
+            "duration": "",
+            "price": "Paid"
+        }
+
+    except Exception as e:
+        print(f"Error in detail scraping: {e}")
+        return {}
+
+
+# ==============================
+# SCRAPE DOMAIN SEARCH PAGE
+# ==============================
+def scrape_domain_courses(domain, max_courses=20):
     print(f"Scraping domain: {domain}")
 
     search_url = f"https://www.coursera.org/search?query={domain.replace(' ', '%20')}"
@@ -43,10 +103,7 @@ def scrape_domain_courses(domain, max_courses=5):
     soup = BeautifulSoup(response.text, "html.parser")
 
     courses = []
-
-    # Search for course links
     links = soup.find_all("a", href=True)
-
     seen_links = set()
 
     for link in links:
@@ -74,9 +131,9 @@ def scrape_domain_courses(domain, max_courses=5):
                 "course_name": title,
                 "domain": domain,
                 "subdomain": "",
-                "mentor": details.get("mentor", ""),
+                "mentor": details.get("mentor", "Not Available"),
                 "duration": details.get("duration", ""),
-                "price": "Paid",
+                "price": details.get("price", "Paid"),
                 "rating": details.get("rating", ""),
                 "level": details.get("level", ""),
                 "skills": details.get("skills", ""),
@@ -90,54 +147,8 @@ def scrape_domain_courses(domain, max_courses=5):
                 break
 
     time.sleep(random.uniform(1, 2))
-
     return courses
-def scrape_course_details(course_url):
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
 
-    try:
-        response = requests.get(course_url, headers=headers, timeout=10)
-
-        if response.status_code != 200:
-            return {}
-
-        soup = BeautifulSoup(response.text, "html.parser")
-        text = soup.get_text(" ", strip=True)
-
-        # crude metadata extraction from page text
-        description = text[:500]
-
-        level = ""
-        for lv in ["Beginner", "Intermediate", "Advanced", "Mixed"]:
-            if lv.lower() in text.lower():
-                level = lv
-                break
-
-        skills = ""
-        if "skills" in text.lower():
-            skills = "Extracted from page"
-
-        mentor = ""
-        if "instructor" in text.lower():
-            mentor = "Coursera Instructor"
-
-        rating = ""
-        duration = ""
-
-        return {
-            "description": description,
-            "skills": skills,
-            "level": level,
-            "mentor": mentor,
-            "rating": rating,
-            "duration": duration
-        }
-
-    except Exception as e:
-        print(f"Error in detail scraping: {e}")
-        return {}
 
 # ==============================
 # MAIN SCRAPER
@@ -151,7 +162,7 @@ def run_scraper():
 
     df = pd.DataFrame(all_courses)
 
-    df.to_csv("../data/coursera_courses.csv", index=False, encoding="utf-8")
+    df.to_csv("data/coursera_courses.csv", index=False, encoding="utf-8")
     print("CSV saved successfully!")
 
 
