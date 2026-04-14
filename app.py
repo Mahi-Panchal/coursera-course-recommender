@@ -1,89 +1,33 @@
 import streamlit as st
-from recommender.recommendation_engine import recommend_courses
+from recommender import CourseEngine
 
-st.set_page_config(
-    page_title="Course Recommender",
-    page_icon="🎓",
-    layout="wide"
-)
+@st.cache_resource
+def init_engine():
+    return CourseEngine('courses_data.csv')
 
-# =========================
-# CREATIVE HEADER
-# =========================
-st.markdown("""
-    <h1 style='text-align:center; color:#4F46E5;'>
-        🎓 Smart Course Recommender
-    </h1>
-    <p style='text-align:center; font-size:18px; color:gray;'>
-        Discover the best courses based on your learning goals
-    </p>
-""", unsafe_allow_html=True)
+engine = init_engine()
 
-st.markdown("---")
+st.set_page_config(page_title="Course AI", layout="wide")
+st.title("🎓 Smart Course Finder")
 
-# =========================
-# FILTER SECTION
-# =========================
-col1, col2 = st.columns(2)
+with st.sidebar:
+    st.header("Search Parameters")
+    sel_domain = st.selectbox("Industry/Domain*", engine.df['domain'].unique())
+    sel_sub = st.text_input("Subdomain (Optional)")
+    sel_mentor = st.text_input("University/Instructor (Optional)")
+    search_btn = st.button("Find Courses", type="primary")
 
-with col1:
-    domain = st.selectbox(
-        "📚 Select Domain",
-        [
-            "Artificial Intelligence",
-            "Data Science",
-            "Web Development",
-            "Cloud Computing",
-            "Cybersecurity",
-            "Mobile Development",
-            "Blockchain",
-            "UI UX",
-            "DevOps",
-            "Programming"
-        ]
-    )
-
-    subdomain = st.text_input("🔍 Subdomain (Optional)")
-
-with col2:
-    mentor = st.text_input("👨‍🏫 Preferred Mentor (Optional)")
-    duration = st.number_input("⏱ Max Duration Hours", min_value=0, value=0)
-    price = st.selectbox("💰 Price", ["Any", "Free", "Paid"])
-
-top_n = st.slider("⭐ Number of Recommendations", 1, 10, 5)
-
-# =========================
-# BUTTON
-# =========================
-if st.button("🚀 Recommend Courses"):
-    results = recommend_courses(
-    domain=domain,
-    subdomain=subdomain,
-    mentor=mentor,
-    max_duration=duration,
-    price_filter=price,
-    top_n=top_n
-)
-
-    if results.empty:
-        st.warning("No matching courses found.")
+if search_btn:
+    results = engine.get_recs(sel_domain, sel_sub, sel_mentor)
+    if not results.empty:
+        # Create a 3-column grid for the UI
+        cols = st.columns(3)
+        for idx, (_, row) in enumerate(results.iterrows()):
+            with cols[idx % 3]:
+                with st.container(border=True):
+                    st.subheader(row['title'])
+                    st.write(f"🏫 **{row['mentor']}**")
+                    st.write(f"📂 {row['subdomain']}")
+                    st.link_button("View on Coursera", row['url'])
     else:
-        st.success(f"Found {len(results)} best matching courses")
-
-        for _, row in results.iterrows():
-            st.markdown(f"""
-            <div style="
-                border:1px solid #ddd;
-                border-radius:12px;
-                padding:20px;
-                margin-bottom:15px;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-            ">
-                <h3>{row['course_name']}</h3>
-                <p><b>📚 Domain:</b> {row['domain']}</p>
-                <p><b>👨‍🏫 Mentor:</b> {row['mentor'] if row['mentor'] else "Not Available"}</p>
-                <p><b>🎯 Level:</b> {row['level']}</p>
-                <p><b>📈 Match Score:</b> {row['score']:.2f}</p>
-                <a href="{row['course_url']}" target="_blank">🔗 Open Course</a>
-            </div>
-            """, unsafe_allow_html=True)
+        st.error("No matches found for that specific criteria.")
