@@ -1,5 +1,7 @@
 streamlit
 pandas
 scikit-learn
-requests
 beautifulsoup4
+requests
+rapidfuzz
+numpy
