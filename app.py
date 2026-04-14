@@ -1,69 +1,116 @@
 import streamlit as st
-from recommender import CourseEngine
+import pandas as pd
+from recommender import CourseRecommender
+import time
 
-# Load the engine once
+# Page Configuration
+st.set_page_config(
+    page_title="Coursera Recommender | AI-Powered",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Load Custom CSS
+def load_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Initialize Recommender
 @st.cache_resource
-def load_engine():
-    return CourseEngine('courses_data.csv')
+def init_recommender():
+    return CourseRecommender('coursera_courses.csv')
 
-engine = load_engine()
+def main():
+    try:
+        load_css('style.css')
+    except:
+        pass # Fallback to default if CSS missing
 
-# --- UX STYLING ---
-st.set_page_config(page_title="Coursera Pro", page_icon="🎓", layout="wide")
-st.markdown("""
-    <style>
-    .course-card {
-        background-color: white; padding: 20px; border-radius: 10px;
-        border: 1px solid #e6e9ef; margin-bottom: 20px; height: 250px;
-    }
-    .badge {
-        padding: 4px 8px; border-radius: 4px; font-size: 12px;
-        font-weight: bold; color: white; background-color: #0056D2;
-    }
-    </style>
-""", unsafe_allow_html=True)
+    recommender = init_recommender()
 
-# --- UI LAYOUT ---
-st.title("🎓 Premium Course Recommender")
-st.subheader("Personalized learning paths based on your budget and schedule.")
-
-# Input Section (Sidebar for better UX)
-with st.sidebar:
-    st.header("🎯 Preferences")
-    d_input = st.selectbox("Select Domain*", engine.df['domain'].unique())
-    dur_input = st.selectbox("Max Duration*", ["1-4 Weeks", "1-3 Months", "6+ Months"])
-    p_input = st.radio("Price Type*", ["Free", "Paid"])
+    # --- Sidebar Filters ---
+    st.sidebar.markdown("### 🔍 Discovery Filters")
     
-    st.divider()
-    st.header("🔍 Optional Details")
-    s_input = st.text_input("Subdomain (e.g. AI, Finance)")
-    m_input = st.text_input("Specific Mentor/University")
-    
-    search_btn = st.button("Generate Recommendations", type="primary", use_container_width=True)
+    # Domain (Required)
+    domains = recommender.get_domains()
+    selected_domain = st.sidebar.selectbox("Choose a Domain", ["Select Domain"] + domains)
 
-# Output Section
-if search_btn:
-    recs = engine.recommend(d_input, dur_input, p_input, s_input, m_input)
+    # Optional Fields
+    subdomains = []
+    if selected_domain != "Select Domain":
+        subdomains = recommender.get_subdomains(selected_domain)
     
-    if not recs.empty:
-        st.success(f"Found {len(recs)} courses matching your criteria!")
+    selected_subdomain = st.sidebar.selectbox("Subdomain (Optional)", ["All Subdomains"] + subdomains)
+    
+    max_price = st.sidebar.number_input("Max Price (Rupees)", min_value=0, value=10000, step=500)
+    
+    max_duration = st.sidebar.slider("Maximum Duration (Months)", 1, 12, 6)
+
+    st.sidebar.markdown("---")
+    recommend_btn = st.sidebar.button("✨ Get Recommendations")
+
+    # --- Main Content ---
+    st.markdown("<h1 class='main-title'>Coursera Intelligence</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #9699a3; margin-top: -1.5rem;'>Discover your next career milestone with AI-driven course matching.</p>", unsafe_allow_html=True)
+
+    if selected_domain == "Select Domain":
+        st.info("👈 Please select a **Domain** in the sidebar to start your learning journey.")
         
-        # Displaying 3 courses per row
-        cols = st.columns(3)
-        for i, (idx, row) in enumerate(recs.iterrows()):
-            with cols[i % 3]:
-                st.markdown(f"""
-                    <div class="course-card">
-                        <span class="badge">{row['price']}</span>
-                        <h3>{row['title']}</h3>
-                        <p><b>Institution:</b> {row['mentor']}</p>
-                        <p><b>Estimated Time:</b> {row['duration']}</p>
-                        <a href="{row['url']}" target="_blank">
-                            <button style="width:100%; background-color:#0056D2; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">
-                                View Course
-                            </button>
-                        </a>
-                    </div>
-                """, unsafe_allow_html=True)
+        # UI Placeholder / Intro
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("### 🚀 Fast Growth")
+            st.write("Top-tier courses from industry leaders.")
+        with col2:
+            st.markdown("### 💎 Premium Content")
+            st.write("Expertly curated for maximum impact.")
+        with col3:
+            st.markdown("### 📊 Data Driven")
+            st.write("Matched to your specific goals.")
+    
     else:
-        st.warning("No courses match those exact filters. Try changing the Duration or Price setting.")
+        if recommend_btn:
+            with st.spinner("Analyzing catalogs and matching your profile..."):
+                time.sleep(1) # Aesthetic delay
+                
+                # Process empty values
+                sub_query = selected_subdomain if selected_subdomain != "All Subdomains" else None
+                
+                results = recommender.recommend(
+                    domain=selected_domain,
+                    subdomain=sub_query,
+                    max_price=max_price,
+                    max_duration=max_duration
+                )
+
+                if results.empty:
+                    st.warning("No courses found matching these specific criteria. Try broadening your price or duration filters.")
+                else:
+                    st.markdown(f"### top recommendations for **{selected_domain}**")
+                    
+                    # Display Grid
+                    cols = st.columns(3)
+                    for idx, (_, row) in enumerate(results.iterrows()):
+                        col = cols[idx % 3]
+                        with col:
+                            # Render custom card
+                            st.markdown(f"""
+                                <div class="course-card animate-in" style="animation-delay: {idx * 0.1}s">
+                                    <div class="course-sub">{row['sub_domain']}</div>
+                                    <div class="course-title">{row['course_title']}</div>
+                                    <div class="course-meta">
+                                        <span>📍 {row['level']}</span>
+                                        <span>⏳ {row['duration']} Months</span>
+                                    </div>
+                                    <div class="course-meta">
+                                        <span class="price-tag">₹{row['price']:,.2f}</span>
+                                        <a href="{row['url']}" target="_blank" style="text-decoration: none; color: #bb9af7; font-weight: 600;">View Course →</a>
+                                    </div>
+                                </div>
+                            """, unsafe_allow_html=True)
+        else:
+            st.success("Configuration set! Click 'Get Recommendations' to see results.")
+
+if __name__ == "__main__":
+    main()
