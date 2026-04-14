@@ -37,11 +37,7 @@ def main():
     selected_domain = st.sidebar.selectbox("Choose a Domain", ["Select Domain"] + domains)
 
     # Optional Fields
-    subdomains = []
-    if selected_domain != "Select Domain":
-        subdomains = recommender.get_subdomains(selected_domain)
-    
-    selected_subdomain = st.sidebar.selectbox("Subdomain (Optional)", ["All Subdomains"] + subdomains)
+    selected_subdomain = st.sidebar.text_input("Subdomain Keyword (Optional)", placeholder="e.g. Machine Learning, Cloud")
     
     max_price = st.sidebar.number_input("Max Price (Rupees)", min_value=0, value=10000, step=500)
     
@@ -75,7 +71,7 @@ def main():
                 time.sleep(1) # Aesthetic delay
                 
                 # Process empty values
-                sub_query = selected_subdomain if selected_subdomain != "All Subdomains" else None
+                sub_query = selected_subdomain.strip() if selected_subdomain.strip() != "" else None
                 
                 results = recommender.recommend(
                     domain=selected_domain,
